@@ -227,12 +227,12 @@ class LoggerCallback(TrainerCallback):
         print(self._to_message(entry))
 
     def on_train_begin(self, args, state, control, **kwargs):
-        print(f"📝 Log → {self.log_path}")
+        print(f"Log → {self.log_path}")
 
     def on_train_end(self, args, state, control, **kwargs):
         best = state.best_metric
         msg = f"best eval_loss={best:.4f}" if best else "hoàn tất"
-        print(f"🏁 Training {msg}")
+        print(f"Training {msg}")
 
 def argument():
     parser = ArgumentParser(description='LLM Fine-Tuning')
@@ -246,10 +246,9 @@ def argument():
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=1)
     parser.add_argument("--grad_accum", type=int, default=8)
-    parser.add_argument("--lr", type=float, default=2e-4)
+    parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--max_seq_len", type=int, default=MAX_SEQ_LEN)
     parser.add_argument("--warmup_ratio", type=float, default=0.03)
-    # parser.add_argument('--warmup_steps', type=int, default=1000)
     parser.add_argument("--weight_decay", type=float, default=0.001)
     parser.add_argument("--max_grad_norm", type=float, default=0.3)
     parser.add_argument("--seed", type=int, default=42)
@@ -258,9 +257,9 @@ def argument():
     parser.add_argument("--lora_alpha", type=int, default=32)
     parser.add_argument("--lora_dropout", type=float, default=0.05)
 
-    parser.add_argument("--log_steps", type=int, default=10)
-    parser.add_argument("--save_steps", type=int, default=500)
-    parser.add_argument("--eval_steps", type=int, default=500)
+    parser.add_argument("--log_steps", type=int, default=1)
+    parser.add_argument("--save_steps", type=int, default=10)
+    parser.add_argument("--eval_steps", type=int, default=10)
     parser.add_argument("--save_total_limit", type=int, default=3)
 
     parser.add_argument("--max_samples", type=int, default=None)
@@ -318,7 +317,7 @@ def train():
         fp16=False,
         bf16=True,
         gradient_checkpointing=True,
-        dataloader_num_workers=4,
+        # dataloader_num_workers=4,
         logging_dir=log_dir,
         logging_steps=args.log_steps,
         save_strategy="steps",
@@ -353,6 +352,35 @@ def train():
         data_collator=collator,
         callbacks=[callback],
     )
+
+    eff_batch = args.batch_size * args.grad_accum
+    print('Training!!!')
+    print(f"Model: {args.base_model}")
+    print(f"Dataset: {len(train_ds):,} train | {len(eval_ds):,} eval")
+    print(f"Epochs: {args.epochs}")
+    print(f"Batch: {args.batch_size} × {args.grad_accum} accum = {eff_batch} eff.")
+    print(f"LR: {args.lr}")
+    print(f"Max tokens: {args.max_seq_len}")
+    print(f"Output: {args.output_dir}/")
+
+    trainer.train(resume_from_checkpoint=args.resume)
+
+    final_dir = os.path.join(args.output_dir, 'final')
+    os.makedirs(final_dir, exist_ok=True)
+
+    trainer.save_model(final_dir)
+    with open(os.path.join(final_dir, "base_model.txt"), "w") as f:
+        f.write(args.base_model)
+
+    print('Test Inference!!!')
+
+    try:
+        model.eval()
+        infer = InferenceChain(model, tokenizer, prompt_builder)
+        answer = infer.run("Tính diện tích hình tròn có bán kính 7 cm.")
+        print(f"{answer[:300]}")
+    except Exception as e:
+        print(f"Inference test lỗi (không ảnh hưởng model đã lưu): {e}")
 
 
 if __name__ == '__main__':
