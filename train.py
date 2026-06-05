@@ -257,9 +257,9 @@ def argument():
     parser.add_argument("--lora_alpha", type=int, default=32)
     parser.add_argument("--lora_dropout", type=float, default=0.05)
 
-    parser.add_argument("--log_steps", type=int, default=1)
-    parser.add_argument("--save_steps", type=int, default=10)
-    parser.add_argument("--eval_steps", type=int, default=10)
+    parser.add_argument("--log_steps", type=int, default=10)
+    parser.add_argument("--save_steps", type=int, default=100)
+    parser.add_argument("--eval_steps", type=int, default=500)
     parser.add_argument("--save_total_limit", type=int, default=3)
 
     parser.add_argument("--max_samples", type=int, default=None)
