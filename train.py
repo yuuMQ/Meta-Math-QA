@@ -14,6 +14,8 @@ import json
 from argparse import ArgumentParser
 
 from datasets import load_from_disk
+from unsloth import FastLanguageModel, is_bfloat16_supported
+
 from transformers import (
     AutoModelForCausalLM,
     TrainingArguments,
@@ -70,7 +72,6 @@ LORA_TARGET_MODULES = [
 ]
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 
 # Prompt management for training and inference
 
@@ -244,7 +245,7 @@ def argument():
     parser.add_argument('--output_dir', type=str, default='outputs')
 
     parser.add_argument("--epochs", type=int, default=3)
-    parser.add_argument("--batch_size", type=int, default=1)
+    parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--grad_accum", type=int, default=8)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--max_seq_len", type=int, default=MAX_SEQ_LEN)
@@ -255,10 +256,10 @@ def argument():
 
     parser.add_argument("--lora_r", type=int, default=16)
     parser.add_argument("--lora_alpha", type=int, default=32)
-    parser.add_argument("--lora_dropout", type=float, default=0.05)
+    parser.add_argument("--lora_dropout", type=float, default=0.0)
 
     parser.add_argument("--log_steps", type=int, default=10)
-    parser.add_argument("--save_steps", type=int, default=100)
+    parser.add_argument("--save_steps", type=int, default=500)
     parser.add_argument("--eval_steps", type=int, default=500)
     parser.add_argument("--save_total_limit", type=int, default=3)
 
@@ -273,28 +274,32 @@ def train():
     set_seed(args.seed)
 
     prompt_builder = MathPromptBuilder()
-    tokenizer = load_bpe_tokenizer(args.bpe_path)
-    bnb_config = get_bnb_config()
 
-    model = AutoModelForCausalLM.from_pretrained(
-        args.base_model,
-        quantization_config=bnb_config,
-        device_map='auto',
-        trust_remote_code=True,
-        dtype=torch.bfloat16,
+    model, unsloth_tokenizer = FastLanguageModel.from_pretrained(
+        model_name=args.base_model,
+        max_seq_length=args.max_seq_len,
+        dtype=torch.bfloat16 if is_bfloat16_supported() else torch.float16,
+        load_in_4bit=True,
     )
-    model.config.use_cache = False
-    model.config.pretraining_tp = 1
+    tokenizer = load_bpe_tokenizer(args.bpe_path)
 
-    # Trainable : 778,426,880 / 2,364,398,080  (32.923%)
     if len(tokenizer) > model.config.vocab_size:
         print(f"Resizing embeddings: {model.config.vocab_size:,} to {len(tokenizer):,}")
         model.resize_token_embeddings(len(tokenizer))
 
-    model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
-
-    print('QLoRA - r={} | alpha={} | dropout={}'.format(args.lora_r, args.lora_alpha, args.lora_dropout))
-    model = get_peft_model(model, get_lora_config(args))
+    print('QLoRA (Unsloth) - r={} | alpha={} | dropout={}'.format(args.lora_r, args.lora_alpha, args.lora_dropout))
+    model = FastLanguageModel.get_peft_model(
+        model,
+        r=args.lora_r,
+        target_modules=LORA_TARGET_MODULES,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
+        bias="none",
+        use_gradient_checkpointing="unsloth",
+        random_state=args.seed,
+        use_rslora=False,
+        loftq_config=None,
+    )
 
     print("Trainable Params")
     print_trainable_params(model)
@@ -308,16 +313,15 @@ def train():
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
         gradient_accumulation_steps=args.grad_accum,
-        optim="paged_adamw_32bit",
+        optim="adamw_8bit",
         learning_rate=args.lr,
         weight_decay=args.weight_decay,
         max_grad_norm=args.max_grad_norm,
         warmup_ratio=args.warmup_ratio,
         lr_scheduler_type="cosine",
-        fp16=False,
-        bf16=True,
+        fp16=True,
+        bf16=False,
         gradient_checkpointing=True,
-        # dataloader_num_workers=4,
         logging_dir=log_dir,
         logging_steps=args.log_steps,
         save_strategy="steps",
@@ -368,14 +372,17 @@ def train():
     final_dir = os.path.join(args.output_dir, 'final')
     os.makedirs(final_dir, exist_ok=True)
 
-    trainer.save_model(final_dir)
+    model.save_pretrained(final_dir)
+    tokenizer.save_pretrained(final_dir)
+
     with open(os.path.join(final_dir, "base_model.txt"), "w") as f:
         f.write(args.base_model)
 
     print('Test Inference!!!')
 
     try:
-        model.eval()
+        FastLanguageModel.for_inference(model)
+
         infer = InferenceChain(model, tokenizer, prompt_builder)
         answer = infer.run("Tính diện tích hình tròn có bán kính 7 cm.")
         print(f"{answer[:300]}")
