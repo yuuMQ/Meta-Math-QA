@@ -276,31 +276,43 @@ def train():
 
     prompt_builder = MathPromptBuilder()
 
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=args.base_model,
-        max_seq_length=args.max_seq_len,
-        dtype=torch.bfloat16 if is_bfloat16_supported() else torch.float16,
-        load_in_4bit=True,
+    # model, tokenizer = FastLanguageModel.from_pretrained(
+    #     model_name=args.base_model,
+    #     max_seq_length=args.max_seq_len,
+    #     dtype=torch.float16,
+    #     load_in_4bit=True,
+    # )
+
+    bnb_config = get_bnb_config()
+
+    model = AutoModelForCausalLM.from_pretrained(
+        args.base_model,
+        quantization_config=bnb_config,
+        device_map="auto",
+        torch_dtype=torch.float16,
     )
-    # tokenizer = load_bpe_tokenizer(args.bpe_path)
-    #
-    # if len(tokenizer) > model.config.vocab_size:
-    #     print(f"Resizing embeddings: {model.config.vocab_size:,} to {len(tokenizer):,}")
-    #     model.resize_token_embeddings(len(tokenizer))
+    tokenizer = load_bpe_tokenizer(args.bpe_path)
+
+    if len(tokenizer) > model.config.vocab_size:
+        print(f"Resizing embeddings: {model.config.vocab_size:,} to {len(tokenizer):,}")
+        model.resize_token_embeddings(len(tokenizer))
 
     print('QLoRA (Unsloth) - r={} | alpha={} | dropout={}'.format(args.lora_r, args.lora_alpha, args.lora_dropout))
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r=args.lora_r,
-        target_modules=LORA_TARGET_MODULES,
-        lora_alpha=args.lora_alpha,
-        lora_dropout=args.lora_dropout,
-        bias="none",
-        use_gradient_checkpointing="unsloth",
-        random_state=args.seed,
-        use_rslora=False,
-        loftq_config=None,
-    )
+    model = prepare_model_for_kbit_training(model)
+    model = get_peft_model(model, get_lora_config(args))
+
+    # model = FastLanguageModel.get_peft_model(
+    #     model,
+    #     r=args.lora_r,
+    #     target_modules=LORA_TARGET_MODULES,
+    #     lora_alpha=args.lora_alpha,
+    #     lora_dropout=args.lora_dropout,
+    #     bias="none",
+    #     use_gradient_checkpointing="unsloth",
+    #     random_state=args.seed,
+    #     use_rslora=False,
+    #     loftq_config=None,
+    # )
 
     print("Trainable Params")
     print_trainable_params(model)
@@ -342,7 +354,7 @@ def train():
     collator = DataCollatorForSeq2Seq(
         tokenizer=tokenizer,
         model=model,
-        label_pad_token_id=100,
+        label_pad_token_id=-100,
         pad_to_multiple_of=8,
         padding=True
     )
@@ -382,9 +394,10 @@ def train():
     print('Test Inference!!!')
 
     try:
-        FastLanguageModel.for_inference(model)
+        model.eval()
 
         infer = InferenceChain(model, tokenizer, prompt_builder)
+
         answer = infer.run("Tính diện tích hình tròn có bán kính 7 cm.")
         print(f"{answer[:300]}")
     except Exception as e:
