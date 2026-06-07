@@ -46,7 +46,7 @@ from langchain_core.messages import (
     HumanMessage,
     AIMessage
 )
-from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
+from langchain_huggingface import HuggingFacePipeline
 from langchain_core.output_parsers import StrOutputParser
 
 from preprocessing import (
@@ -129,6 +129,7 @@ class InferenceChain:
             repetition_penalty=1.1,
             return_full_text=False,
         )
+        hf_pipe.model.config.pad_token_id = hf_pipe.tokenizer.pad_token_id
         self.llm = HuggingFacePipeline(pipeline=hf_pipe)
         self.prompt_builder = prompt_builder
         self.parser = StrOutputParser()
@@ -247,7 +248,7 @@ def argument():
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch_size", type=int, default=2)
     parser.add_argument("--grad_accum", type=int, default=8)
-    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--max_seq_len", type=int, default=MAX_SEQ_LEN)
     parser.add_argument("--warmup_ratio", type=float, default=0.03)
     parser.add_argument("--weight_decay", type=float, default=0.001)
@@ -275,17 +276,17 @@ def train():
 
     prompt_builder = MathPromptBuilder()
 
-    model, unsloth_tokenizer = FastLanguageModel.from_pretrained(
+    model, tokenizer = FastLanguageModel.from_pretrained(
         model_name=args.base_model,
         max_seq_length=args.max_seq_len,
         dtype=torch.bfloat16 if is_bfloat16_supported() else torch.float16,
         load_in_4bit=True,
     )
-    tokenizer = load_bpe_tokenizer(args.bpe_path)
-
-    if len(tokenizer) > model.config.vocab_size:
-        print(f"Resizing embeddings: {model.config.vocab_size:,} to {len(tokenizer):,}")
-        model.resize_token_embeddings(len(tokenizer))
+    # tokenizer = load_bpe_tokenizer(args.bpe_path)
+    #
+    # if len(tokenizer) > model.config.vocab_size:
+    #     print(f"Resizing embeddings: {model.config.vocab_size:,} to {len(tokenizer):,}")
+    #     model.resize_token_embeddings(len(tokenizer))
 
     print('QLoRA (Unsloth) - r={} | alpha={} | dropout={}'.format(args.lora_r, args.lora_alpha, args.lora_dropout))
     model = FastLanguageModel.get_peft_model(
@@ -324,10 +325,10 @@ def train():
         gradient_checkpointing=True,
         logging_dir=log_dir,
         logging_steps=args.log_steps,
-        save_strategy="steps",
+        save_strategy="epoch",
+        eval_strategy="epoch",
         save_steps=args.save_steps,
         save_total_limit=args.save_total_limit,
-        eval_strategy="steps",
         eval_steps=args.eval_steps,
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
