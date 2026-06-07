@@ -14,7 +14,7 @@ import json
 from argparse import ArgumentParser
 
 from datasets import load_from_disk
-from unsloth import FastLanguageModel, is_bfloat16_supported
+# from unsloth import FastLanguageModel, is_bfloat16_supported
 
 from transformers import (
     AutoModelForCausalLM,
@@ -297,7 +297,7 @@ def train():
         print(f"Resizing embeddings: {model.config.vocab_size:,} to {len(tokenizer):,}")
         model.resize_token_embeddings(len(tokenizer))
 
-    print('QLoRA (Unsloth) - r={} | alpha={} | dropout={}'.format(args.lora_r, args.lora_alpha, args.lora_dropout))
+    print('QLoRA - r={} | alpha={} | dropout={}'.format(args.lora_r, args.lora_alpha, args.lora_dropout))
     model = prepare_model_for_kbit_training(model)
     model = get_peft_model(model, get_lora_config(args))
 
