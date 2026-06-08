@@ -18,13 +18,11 @@ from datasets import load_from_disk
 
 from transformers import (
     AutoModelForCausalLM,
-    TrainingArguments,
     DataCollatorForSeq2Seq,
     TrainerCallback,
-    TrainerState,
     set_seed,
     BitsAndBytesConfig,
-    pipeline, AutoModelForMaskedLM,
+    pipeline
 )
 from peft import (
     LoraConfig,
@@ -289,7 +287,7 @@ def train():
         args.base_model,
         quantization_config=bnb_config,
         device_map="auto",
-        torch_dtype=torch.float16,
+        dtype=torch.float16,
     )
     tokenizer = load_bpe_tokenizer(args.bpe_path)
 
