@@ -7,3 +7,4 @@ processed_dataset/
 __pycache__
 outputs/
 unsloth_compiled_cache/
+qdrant_store/
