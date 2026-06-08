@@ -5,7 +5,7 @@ class MathChunker:
     MAX_CHUNK_TOKEN = 256
     OVERLAP_CHARS = 80
 
-    def __init__(self, sample, sample_id):
+    def chunk_sample(self, sample, sample_id):
         self.sample = sample
         self.sample_id = sample_id
         # 'original_question_vi', 'query_vi', 'response_vi', 'type'
@@ -13,6 +13,10 @@ class MathChunker:
         query = (sample.get('query_vi'))
         response = (sample.get('response_vi'))
         math_type = (sample.get('type'))
+
+        # print(f'query: {query}')
+        # print(f'response: {response}')
+        # print(f'type: {math_type}')
 
         if not query and not response:
             return []
@@ -53,6 +57,7 @@ class MathChunker:
                 'query_ref': query[:120]
             })
 
+        return chunks
     def _split_solution(self, response):
         step_pattern = re.compile(
             r'(?=Bước\s*\d|'  # "Bước 1", "Bước 2"

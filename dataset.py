@@ -16,6 +16,9 @@ class MetaMathQA:
 
         self.dataset = load_from_disk(self.data_path)
 
+    def get_dataset(self):
+        return self.dataset
+
     def _download_dataset(self):
         dataset = load_dataset('5CD-AI/Vietnamese-395k-meta-math-MetaMathQA-gg-translated', split='train')
         dataset.save_to_disk(self.data_path)
