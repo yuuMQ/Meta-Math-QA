@@ -12,7 +12,7 @@ class MetaMathEmbedder:
         )
 
     def embed(self, texts):
-        prefixed = ['passage: {}'.format(t for t in texts)]
+        prefixed = [f'passage: {t}' for t in texts]
         embeddings = self.model.encode(
             prefixed,
             normalize_embeddings=True
@@ -21,7 +21,7 @@ class MetaMathEmbedder:
 
     def embed_query(self, query):
         embedding = self.model.encode(
-            'query: {}'.format(query),
+            f'query: {query}',
             normalize_embeddings=True,
         )
         return embedding.tolist()

@@ -11,6 +11,7 @@ from embedder import MetaMathEmbedder
 from vector_store import QDrantVectorStore
 
 MIN_SCORE = 0.45
+load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
 
@@ -79,15 +80,15 @@ class WebSearcher:
 
 # Local LLM -> Sử dụng Viet-Sailor-4B
 class MathAssistant:
-    def __init__(self, model_path='base_model'):
+    def __init__(self, model_path='base_model/Viet-Sailor-4B-Instruct.Q8_0.gguf'):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.llm = LlamaCpp(
             model_path=model_path,
-            n_ctx=4096,
+            n_ctx=32768,
             n_gpu_layers=0,
             temperature=0.1,
             top_p=0.9,
-            repeat_penalty=1.1,
+            repeat_penalty=1.3,
             max_tokens=1024,
             verbose=False,
             callback_manager=CallbackManager([StreamingStdOutCallbackHandler()]),
@@ -109,7 +110,7 @@ class MathAssistant:
     def generate(self, query, context, web_hint, max_tokens=1024):
         prompt = self._build_prompt(query, context, web_hint)
 
-        raw = self.llm.invoke(prompt, stop=["[EOS]", "</s>", "[USR]", "[SYS]"])
+        raw = self.llm.invoke(prompt, stop=["[EOS]", "</s>", "[USR]", "[SYS]", "[/AST]", "###"])
         answer = self.parser.invoke(raw).strip()
 
         if '[EOS]' in answer:
@@ -147,7 +148,10 @@ class MathRAG:
             label = labels.get(h.get("chunk_type", ""), "Tham khảo")
             parts.append(f"{label} (score={h['score']:.2f}):\n{h['text']}")
 
-        return "\n\n---\n\n".join(parts)
+        full_context = "\n\n---\n\n".join(parts)
+        if len(full_context) > 1500:
+            full_context = full_context[:1500] + "..."
+        return full_context
 
     def _build_prompt(self, query, context, web_hint):
         ctx_block = f"### Ngữ cảnh từ dữ liệu:\n{context}" if context else ""
@@ -171,7 +175,9 @@ class MathRAG:
                 print(f"  [{ctype:8s}] score={h['score']:.3f} | {h['text'][:70]}...")
 
         context = self._build_context(hits) if hits else ''
-        web_hint = self.web_searcher.search_web_content(query)
+        web_hint = ""
+        if len(hits) < 2:
+            web_hint = self.web_searcher.search_web_content(query)
 
         answer = self.llm.generate(query=query, context=context, web_hint=web_hint)
 
