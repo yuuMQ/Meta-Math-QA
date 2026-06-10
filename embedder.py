@@ -15,7 +15,9 @@ class MetaMathEmbedder:
         prefixed = [f'passage: {t}' for t in texts]
         embeddings = self.model.encode(
             prefixed,
-            normalize_embeddings=True
+            normalize_embeddings=True,
+            batch_size=64,
+            show_progress_bar=True,
         )
         return embeddings.tolist()
 
