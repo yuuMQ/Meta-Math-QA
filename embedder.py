@@ -17,7 +17,6 @@ class MetaMathEmbedder:
             prefixed,
             normalize_embeddings=True,
             batch_size=64,
-            show_progress_bar=True,
         )
         return embeddings.tolist()
 

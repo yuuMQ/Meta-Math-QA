@@ -8,3 +8,4 @@ __pycache__
 outputs/
 unsloth_compiled_cache/
 qdrant_store/
+checkpoints/
