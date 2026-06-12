@@ -14,7 +14,10 @@ COLLECTION_NAME = 'meta_math'
 
 class QDrantVectorStore:
     def __init__(self, path='qdrant_store'):
-        self.client = QdrantClient(path=path)
+        self.client = QdrantClient(
+            host="localhost",
+            port=6333,
+        )
         self._ensure_collection()
 
     def _ensure_collection(self):
@@ -48,12 +51,6 @@ class QDrantVectorStore:
             )
 
     def search(self, query_vector, top_k):
-        # hits = self.client.search(
-        #     collection_name=COLLECTION_NAME,
-        #     query_vector=query_vector,
-        #     limit=top_k,
-        #     with_payload=True
-        # )
         hits = self.client.query_points(
             collection_name=COLLECTION_NAME,
             query=query_vector,
