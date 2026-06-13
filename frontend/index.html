@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meta Math Assistant</title>
+    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fa-solid fa-square-root-variable logo-icon"></i>
+                <h2>Meta Math</h2>
+            </div>
+            <button class="new-chat-btn"><i class="fa-solid fa-plus"></i> Cuộc hội thoại mới</button>
+            <div class="history-list">
+                <p class="section-title">Gần đây</p>
+                <div class="history-item active"><i class="fa-regular fa-message"></i> Tính tích phân hàm số...</div>
+                <div class="history-item"><i class="fa-regular fa-message"></i> Giải hệ phương trình tuyến tính</div>
+                <div class="history-item"><i class="fa-regular fa-message"></i> Đạo hàm cấp 2 bài toán...</div>
+            </div>
+        </aside>
+
+        <main class="chat-area">
+            <header class="chat-header">
+                <div class="model-info">
+                    <span class="badge">Yuu Demo chill chill</span>
+                    <span>Meta Math Yuu</span>
+                </div>
+                <div class="header-actions">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <i class="fa-solid fa-gear"></i>
+                </div>
+            </header>
+
+            <div class="messages-container" id="chat-messages">
+                <div class="message ai">
+                    <div class="avatar"><i class="fa-solid fa-robot"></i></div>
+                    <div class="bubble">
+                        Xin chào! Tôi là Yuu. Tôi có thể giúp bạn giải toán đơn giản bằng hết khả năng của tôi.
+                    </div>
+                </div>
+            </div>
+
+            <footer class="input-area">
+                <form id="chat-form">
+                    <div class="input-wrapper">
+                        <textarea id="user-input" placeholder="Nhập bài toán (Dùng $ để viết LaTeX)" rows="1"></textarea>
+                        <button type="submit" id="send-btn"><i class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </form>
+                <p class="disclaimer">Meta Math có thể mắc sai sót. Hãy kiểm tra lại các bước giải quan trọng.</p>
+            </footer>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
