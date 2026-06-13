@@ -10,7 +10,7 @@ from langchain_core.callbacks import CallbackManager, StreamingStdOutCallbackHan
 from embedder import MetaMathEmbedder
 from vector_store import QDrantVectorStore
 
-MIN_SCORE = 0.45
+MIN_SCORE = 0.75
 load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
@@ -80,43 +80,29 @@ class WebSearcher:
 
 # Local LLM -> Sử dụng Viet-Sailor-4B
 class MathAssistant:
-    def __init__(self, model_path='base_model/Viet-Sailor-4B-Instruct.Q8_0.gguf'):
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.llm = LlamaCpp(
-            model_path=model_path,
-            n_ctx=32768,
-            n_gpu_layers=0,
+    def __init__(self):
+        self.client = ChatGroq(
+            model="llama-3.3-70b-versatile",
             temperature=0.1,
-            top_p=0.9,
-            repeat_penalty=1.3,
-            max_tokens=1024,
-            verbose=False,
-            callback_manager=CallbackManager([StreamingStdOutCallbackHandler()]),
+            api_key=API_KEY,
         )
         self.parser = StrOutputParser()
 
-    def _build_prompt(self, query, context, web_hint):
-        ctx_block = f"### Ngữ cảnh từ dữ liệu:\n{context}"  if context  else ""
-        web_block = f"### Gợi ý từ internet:\n{web_hint}"    if web_hint else ""
-        separator = "\n\n" if ctx_block and web_block else ""
-
-        return (
-            f"[SYS]{SYSTEM_PROMPT}[/SYS]"
-            f"[CTX]{ctx_block}{separator}{web_block}[/CTX]"
-            f"[USR]{query}[/USR]"
-            f"[AST]"
-        )
-
     def generate(self, query, context, web_hint, max_tokens=1024):
-        prompt = self._build_prompt(query, context, web_hint)
+        ctx_parts = []
+        if context:
+            ctx_parts.append(f"### Ngữ cảnh từ dữ liệu:\n{context}")
+        if web_hint:
+            ctx_parts.append(f"### Gợi ý từ internet:\n{web_hint}")
 
-        raw = self.llm.invoke(prompt, stop=["[EOS]", "</s>", "[USR]", "[SYS]", "[/AST]", "###"])
-        answer = self.parser.invoke(raw).strip()
+        ctx = "\n\n".join(ctx_parts)
 
-        if '[EOS]' in answer:
-            answer = answer.split('[EOS]')[0].strip()
-
-        return answer
+        messages = [
+            SystemMessage(content=SYSTEM_PROMPT),
+            HumanMessage(content=f"{ctx}\n\nCâu hỏi: {query}" if ctx else f"Câu hỏi: {query}"),
+        ]
+        response = self.client.invoke(messages)
+        return self.parser.invoke(response)
 
 
 class MathRAG:
@@ -153,17 +139,6 @@ class MathRAG:
             full_context = full_context[:1500] + "..."
         return full_context
 
-    def _build_prompt(self, query, context, web_hint):
-        ctx_block = f"### Ngữ cảnh từ dữ liệu:\n{context}" if context else ""
-        web_block = f"### Gợi ý phương pháp:\n{web_hint}" if web_hint else ""
-
-        return (
-            f"[SYS]{SYSTEM_PROMPT}[/SYS]"
-            f"[CTX]{ctx_block}\n{web_block}[/CTX]"
-            f"[USR]{query}[/USR]"
-            f"[AST]"
-        )
-
     def answer(self, query, verbose):
         query_vector = self.embedder.embed_query(query)
         hits = self.vector_store.search(query_vector, top_k=5)
@@ -175,8 +150,12 @@ class MathRAG:
                 print(f"  [{ctype:8s}] score={h['score']:.3f} | {h['text'][:70]}...")
 
         context = self._build_context(hits) if hits else ''
+        best_score = max((h['score'] for h in hits), default=0)
+        use_web = best_score < MIN_SCORE or len(hits) < 2
+
         web_hint = ""
-        if len(hits) < 2:
+        if use_web:
+            print('Score hiện tại: {} -> Tiến hành gọi WebSearcher!!!'.format(best_score))
             web_hint = self.web_searcher.search_web_content(query)
 
         answer = self.llm.generate(query=query, context=context, web_hint=web_hint)
@@ -187,8 +166,3 @@ class MathRAG:
             'hits': len(hits),
             "sources": [h["text"][:120] for h in hits],
         }
-
-
-if __name__ == '__main__':
-    rag = MathRAG()
-    print('ABC')

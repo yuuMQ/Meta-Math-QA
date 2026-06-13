@@ -13,7 +13,7 @@ from embedder import MetaMathEmbedder
 COLLECTION_NAME = 'meta_math'
 
 class QDrantVectorStore:
-    def __init__(self, path='qdrant_store'):
+    def __init__(self):
         self.client = QdrantClient(
             host="localhost",
             port=6333,
