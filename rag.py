@@ -10,7 +10,7 @@ from langchain_core.callbacks import CallbackManager, StreamingStdOutCallbackHan
 from embedder import MetaMathEmbedder
 from vector_store import QDrantVectorStore
 
-MIN_SCORE = 0.75
+MIN_SCORE = 0.78
 load_dotenv()
 
 API_KEY = os.getenv("API_KEY")
@@ -19,6 +19,7 @@ SYSTEM_PROMPT = (
     "Bạn là trợ lý toán học thông minh. "
     "Hãy giải các bài toán chính xác, trình bày từng bước rõ ràng bằng tiếng Việt. "
     "Chỉ dùng thông tin từ ngữ cảnh được cung cấp và kiến thức toán học của bạn."
+    "Khi gặp các bài toán có chứa các con số lớn (như hàng trăm nghìn, hàng triệu), hãy chủ động quy đổi đơn vị (ví dụ: chuyển sang đơn vị 'nghìn đồng', 'triệu đồng') để đơn giản hóa biểu thức số học trước khi thực hiện lấy đạo hàm hoặc giải phương trình. Hãy kiểm tra lại các bước nhân chia trước khi đưa ra đáp số cuối cùng."
 )
 WEB_SYSTEM_PROMPT = (
     "Bạn là chuyên gia toán học. "
