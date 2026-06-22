@@ -78,8 +78,6 @@ class WebSearcher:
         response = self.client.invoke(messages)
         return self.parser.invoke(response)
 
-
-# Local LLM -> Sử dụng Viet-Sailor-4B
 class MathAssistant:
     def __init__(self):
         self.client = ChatGroq(
